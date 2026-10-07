@@ -51,8 +51,13 @@ class Command(BaseCommand):
             Category.objects.get_or_create(slug=s, defaults={"name": n, "code": c, "order": i})
         BusinessProfile.get()
         U = get_user_model()
-        if not U.objects.filter(username="admin@example.com").exists():
-            U.objects.create_superuser("admin@example.com", "admin@example.com", os.environ.get("SEED_ADMIN_PASSWORD", "ChangeMe123!"), first_name="Owner")
+        if not U.objects.filter(username="admin@gmail.com").exists():
+           U.objects.create_superuser(
+    "admin@gmail.com",
+    "admin@gmail.com",
+    os.environ.get("SEED_ADMIN_PASSWORD", "ChangeMe123!"),
+    first_name="Owner"
+)
             self.stdout.write("Created admin: admin@example.com  (change the password!)")
         if Vehicle.objects.exists():
             return self.stdout.write("Vehicles already exist - skipping demo vehicles.")
