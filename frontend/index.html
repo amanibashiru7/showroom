@@ -1,0 +1,30 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ title }}</title>
+<meta name="description" content="{{ description }}">
+<meta name="theme-color" content="#0f2742">
+<link rel="canonical" href="{{ url }}">
+<meta property="og:type" content="website"><meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ url }}">
+{% if image %}<meta property="og:image" content="{{ image }}"><meta name="twitter:card" content="summary_large_image">{% endif %}
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="{% static 'icons/icon-192.png' %}">
+<link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+<link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+<a class="skip" href="#app">Skip to content</a>
+<header class="topbar" id="topbar"></header>
+<main id="app" tabindex="-1"></main>
+<nav class="bottomnav" id="bottomnav" aria-label="Mobile"></nav>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="lightbox" class="lightbox" hidden></div>
+<div id="drawer" class="drawer" hidden></div>
+<script src="{% static 'js/i18n.js' %}" defer></script>
+<script src="{% static 'js/app.js' %}" defer></script>
+<script src="{% static 'js/admin.js' %}" defer></script>
+</body>
+</html>
