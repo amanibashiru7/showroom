@@ -204,14 +204,22 @@ class VehicleViewSet(viewsets.ModelViewSet):
         files = request.FILES.getlist("images")
         if not files:
             raise serializers.ValidationError("Choose at least one image.")
-        out = []
-        try:
-            for f in files:
-                pos = v.images.count()
-                out.append(VehicleImage.objects.create(vehicle=v, image=process_image(f), position=pos, is_cover=(pos == 0)))
-        except DjangoValidationError as e:
-            raise as_api_error(e)
-        return Response(VehicleImageSerializer(out, many=True).data, status=201)
+        out, errors = [], []
+        # Count straight from the database (v.images is prefetched and would stay stale inside this loop)
+        next_pos = VehicleImage.objects.filter(vehicle=v).count()
+        has_cover = VehicleImage.objects.filter(vehicle=v, is_cover=True).exists()
+        for f in files:  # one bad file must not block the others
+            try:
+                processed = process_image(f)
+            except DjangoValidationError as e:
+                errors.append(f"{f.name}: {' '.join(e.messages)}")
+                continue
+            out.append(VehicleImage.objects.create(vehicle=v, image=processed, position=next_pos, is_cover=not has_cover))
+            next_pos += 1
+            has_cover = True
+        if not out:
+            raise serializers.ValidationError(errors)
+        return Response({"images": VehicleImageSerializer(out, many=True).data, "errors": errors}, status=201)
 
     @action(detail=True, methods=["post"], url_path="images/reorder")
     def reorder(self, request, vehicle_id=None):

@@ -1,4 +1,4 @@
-const V = "showroom-v2", SHELL = ["/static/css/styles.css", "/static/js/app.js", "/static/js/i18n.js", "/static/js/admin.js", "/static/icons/icon-192.png"];
+const V = "showroom-v3", SHELL = ["/static/css/styles.css", "/static/js/app.js", "/static/js/i18n.js", "/static/js/admin.js", "/static/icons/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x))))); self.clients.claim(); });
 self.addEventListener("fetch", e => {

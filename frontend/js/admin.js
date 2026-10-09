@@ -6,23 +6,43 @@ const SPEC_FIELDS = { // which optional spec fields to show per category
   bajaji: ["engine_cc", "fuel_type", "mileage", "color"],
   guta: ["engine_cc", "fuel_type", "mileage", "color"],
 };
+if (!document.getElementById("dz-style")) document.head.insertAdjacentHTML("beforeend", `<style id="dz-style">
+.dz{border:2px dashed var(--line2);border-radius:var(--r);padding:22px;text-align:center;color:var(--muted);cursor:pointer;background:var(--card);transition:border-color .2s,background-color .2s}
+.dz:hover,.dz.over,.dz:focus-visible{border-color:var(--accent);color:var(--text)}.dz.over{background:var(--hover)}
+.pv{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}.pv div{width:120px;font-size:.72rem;position:relative}.pv img{width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.pv small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}.pv button{position:absolute;top:4px;right:4px;padding:2px 8px;min-height:26px}
+.imgm [draggable=true]{cursor:grab}</style>`);
 async function Admin(app) {
   if (!S.user?.is_staff) { app.innerHTML = `<div class="wrap" style="padding:30px 16px"><div class="empty">Admin access only. <a data-l href="/account">${t("login")}</a></div></div>`; return; }
-  const tabs = [["dash", "Dashboard"], ["inv", "Inventory"], ["add", "+ Add vehicle"], ["inq", "Inquiries"], ["com", "Comments"], ["biz", "Business"]];
+  const NAV = [["dash", "📊", "Dashboard"], ["inv", "🚗", "Inventory"], ["add", "➕", "Add Vehicle"], ["inq", "✉️", "Inquiries"], ["com", "💬", "Comments"], ["biz", "⚙️", "Business Settings"]];
   let tab = sessionStorage.adminTab || "dash";
-  const open = (k, arg) => { tab = k; sessionStorage.adminTab = k; draw(arg); };
-  const body = () => $("#ab");
+  const wide = () => matchMedia("(min-width:900px)").matches;
+  app.innerHTML = `<div class="adm ${localStorage.sideCollapsed === "1" ? "collapsed" : ""}" id="adm"><div class="adm-bar"><button class="iconbtn" id="hb" aria-label="Open menu">☰</button><b>Owner dashboard</b><span class="spacer"></span><button class="iconbtn" data-theme-toggle></button></div>
+   <div class="adm-ov" id="ov"></div>
+   <aside class="adm-side" id="side" aria-label="Dashboard menu"><div class="adm-head"><button class="iconbtn" id="hb2" aria-label="Collapse or expand menu">☰</button><span class="lbl">${esc(S.biz.name || "Owner")}</span></div>
+    ${NAV.map(([k, ic, n]) => `<button class="navi" data-t="${k}" title="${n}"><i>${ic}</i><span class="lbl">${n}</span></button>`).join("")}
+    <a class="navi push" data-l href="/" title="View Public Website"><i>🌐</i><span class="lbl">View Public Website</span></a>
+    <button class="navi" data-theme-toggle></button>
+    <button class="navi" id="alo" title="Logout"><i>🚪</i><span class="lbl">${t("logout")}</span></button></aside>
+   <section class="adm-main"><div id="ab"></div></section></div>`;
+  const root = $("#adm"), body = () => $("#ab");
+  const toggleSide = () => { if (wide()) { root.classList.toggle("collapsed"); localStorage.sideCollapsed = root.classList.contains("collapsed") ? "1" : "0"; } else root.classList.toggle("open"); };
+  $("#hb").onclick = toggleSide; $("#hb2").onclick = toggleSide; $("#ov").onclick = () => root.classList.remove("open");
+  const open = (k, arg) => { tab = k; if (k !== "edit") sessionStorage.adminTab = k; root.classList.remove("open"); return draw(arg); };
+  $$("[data-t]").forEach(b => b.onclick = () => open(b.dataset.t));
+  $("#alo").onclick = async () => { await api("/auth/logout/", { method: "POST" }); S.user = null; go("/"); };
+  $$("#side a[data-l]").forEach(a => a.addEventListener("click", () => root.classList.remove("open")));
+  Theme.sync();
   const draw = async (arg) => {
-    app.innerHTML = `<div class="wrap" style="padding-top:14px"><h2>Owner dashboard</h2><div class="tabs">${tabs.map(([k, n]) => `<button data-t="${k}" class="${k === tab ? "on" : ""}">${n}</button>`).join("")}<button id="alo">${t("logout")}</button></div><div id="ab">${skeleton(2)}</div></div>`;
-    $$("[data-t]").forEach(b => b.onclick = () => open(b.dataset.t));
-    $("#alo").onclick = async () => { await api("/auth/logout/", { method: "POST" }); S.user = null; go("/"); };
+    $$("[data-t]").forEach(b => { const on = b.dataset.t === (tab === "edit" ? "inv" : tab); b.classList.toggle("on", on); on ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"); });
+    body().innerHTML = skeleton(2); window.scrollTo(0, 0);
     try { await ({ dash, inv, add: () => form(null), inq, com, biz, edit: () => form(arg) }[tab])(); } catch (e) { body().innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
   };
   const confirmBox = msg => confirm(msg);
 
   async function dash() {
     const s = await api("/admin/stats/");
-    body().innerHTML = `<div class="stats">${[["Total vehicles", s.total], ["Available", s.available], ["Reserved", s.reserved], ["Sold", s.sold], ["Total inquiries", s.inquiries], ["New inquiries", s.new_inquiries]].map(([n, v]) => `<div class="stat"><b>${v}</b>${n}</div>`).join("")}</div>
+    body().innerHTML = `<h2 style="margin-top:0">Dashboard</h2><div class="stats">${[["Total vehicles", s.total], ["Available", s.available], ["Reserved", s.reserved], ["Sold", s.sold], ["Total inquiries", s.inquiries], ["New inquiries", s.new_inquiries]].map(([n, v]) => `<div class="stat"><b>${v}</b>${n}</div>`).join("")}</div>
      <h3>Recent activity</h3>${s.activity.length ? `<div class="tblw"><table class="tbl">${s.activity.map(a => `<tr><td>${dt(a.at)}</td><td>${esc(a.action)}</td><td>${esc(a.detail)}</td></tr>`).join("")}</table></div>` : '<div class="empty">No activity yet.</div>'}
      <p><button class="btn" id="g1">+ Add vehicle</button> <button class="btn alt" id="g2">Inventory</button></p>`;
     $("#g1").onclick = () => open("add"); $("#g2").onclick = () => open("inv");
@@ -65,17 +85,47 @@ async function Admin(app) {
      <label>Description</label><textarea name="description" rows="4">${esc(v.description || "")}</textarea>
      <label><input type="checkbox" name="featured" style="width:auto" ${v.featured ? "checked" : ""}> Featured vehicle</label>
      <div id="imgs"></div>
-     <label>Add photos <small>(JPG/PNG/WEBP, max 8MB each, optional)</small></label><input type="file" id="fi" accept="image/jpeg,image/png,image/webp" multiple>
+     <label>Add photos <small>(JPG/PNG/WEBP, max 15MB each, optional)</small></label><div class="dz" id="dz" tabindex="0" role="button" aria-label="Choose or drop photos">📷 Drag photos here, or click to choose</div><input type="file" id="fi" accept="image/jpeg,image/png,image/webp" multiple hidden><div class="pv" id="pv"></div>
      <label>Video <small>(MP4/WEBM, max 50MB, optional)</small></label><input type="file" id="fv" accept="video/mp4,video/webm,video/quicktime">${v.video ? `<p>Current video uploaded. <button type="button" class="btn sm danger" id="rv">Remove video</button></p>` : ""}
      ${id ? "" : `<label><input type="checkbox" id="nt" style="width:auto"> Email subscribers about this new vehicle</label>`}
      <div class="err" id="fe"></div><button class="btn" id="fs" style="margin-top:12px">${id ? "Save changes" : "Publish vehicle"}</button></form>`;
     const syncSpecs = () => { const show = SPEC_FIELDS[$("#vc").value] || []; $$("[data-sp]").forEach(d => d.hidden = !show.includes(d.dataset.sp)); };
     $("#vc").onchange = syncSpecs; syncSpecs();
-    const paintImgs = () => { $("#imgs").innerHTML = v.images.length ? `<label>Photos (first = shown first)</label><div class="imgm">${v.images.map((im, i) => `<div><img src="${esc(im.image)}" alt="" class="${im.is_cover ? "on" : ""}">
+    let dragFrom = null;
+    const paintImgs = () => { $("#imgs").innerHTML = v.images.length ? `<label>Photos (first = shown first)</label><div class="imgm">${v.images.map((im, i) => `<div draggable="true" data-ix="${i}" title="Drag to reorder"><img src="${esc(im.image)}" alt="" class="${im.is_cover ? "on" : ""}">
        <button type="button" class="btn sm alt" data-mv="${i},-1">←</button><button type="button" class="btn sm alt" data-mv="${i},1">→</button><br><button type="button" class="btn sm ${im.is_cover ? "gold" : "alt"}" data-cv="${im.id}">${im.is_cover ? "Cover ✓" : "Set cover"}</button><button type="button" class="btn sm danger" data-rm="${im.id}">✕</button></div>`).join("")}</div>` : "";
+      $$(".imgm [data-ix]").forEach(el => {
+        el.ondragstart = e => { dragFrom = +el.dataset.ix; e.dataTransfer.effectAllowed = "move"; el.style.opacity = ".4"; };
+        el.ondragend = () => el.style.opacity = "";
+        el.ondragover = e => { e.preventDefault(); el.style.outline = "3px dashed var(--accent)"; };
+        el.ondragleave = () => el.style.outline = "";
+        el.ondrop = async e => { e.preventDefault(); const to = +el.dataset.ix; if (dragFrom === null || dragFrom === to) return; const [m] = v.images.splice(dragFrom, 1); v.images.splice(to, 0, m); dragFrom = null;
+          try { await api(`/vehicles/${id}/images/reorder/`, { method: "POST", body: { order: v.images.map(x => x.id) } }); } catch (er) { toast(er.message); } paintImgs(); };
+      });
       $$("[data-mv]").forEach(b => b.onclick = async () => { const [i, d] = b.dataset.mv.split(",").map(Number), j = i + d; if (j < 0 || j >= v.images.length) return; [v.images[i], v.images[j]] = [v.images[j], v.images[i]]; await api(`/vehicles/${id}/images/reorder/`, { method: "POST", body: { order: v.images.map(x => x.id) } }); paintImgs(); });
       $$("[data-cv]").forEach(b => b.onclick = async () => { await api(`/images/${b.dataset.cv}/cover/`, { method: "POST" }); v.images.forEach(x => x.is_cover = x.id == b.dataset.cv); paintImgs(); });
       $$("[data-rm]").forEach(b => b.onclick = async () => { if (!confirmBox("Remove this photo?")) return; await api(`/images/${b.dataset.rm}/`, { method: "DELETE" }); v.images = v.images.filter(x => x.id != b.dataset.rm); if (v.images.length && !v.images.some(x => x.is_cover)) v.images[0].is_cover = true; paintImgs(); }); };
+    // --- New photos: choose or drop, preview, remove before saving ---
+    const newFiles = [], urls = [];
+    const okFile = f => /^image\/(jpeg|png|webp)$/.test(f.type) && f.size <= 15 * 1024 * 1024;
+    const paintNew = () => {
+      urls.splice(0).forEach(u => URL.revokeObjectURL(u));
+      $("#pv").innerHTML = newFiles.map((f, i) => { const u = URL.createObjectURL(f); urls.push(u);
+        return `<div><img src="${u}" alt="Preview ${i + 1}"><button type="button" class="btn sm danger" data-nx="${i}" aria-label="Remove photo">✕</button><small>${esc(f.name)}</small></div>`; }).join("");
+      $$("[data-nx]").forEach(b => b.onclick = () => { newFiles.splice(+b.dataset.nx, 1); paintNew(); });
+    };
+    const addFiles = list => {
+      const bad = []; [...list].forEach(f => okFile(f) ? newFiles.push(f) : bad.push(f.name));
+      if (bad.length) toast("Skipped (JPG/PNG/WEBP up to 15MB only): " + bad.join(", "));
+      paintNew();
+    };
+    const dz = $("#dz");
+    dz.onclick = () => $("#fi").click();
+    dz.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#fi").click(); } };
+    $("#fi").onchange = e => { addFiles(e.target.files); e.target.value = ""; };
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+    dz.ondragleave = () => dz.classList.remove("over");
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); addFiles(e.dataTransfer.files); };
     if (id) paintImgs();
     if ($("#rv")) $("#rv").onclick = async () => { await api(`/vehicles/${id}/video/`, { method: "DELETE" }); toast("Video removed"); $("#rv").parentElement.remove(); };
     $("#vf").onsubmit = async e => {
@@ -88,9 +138,14 @@ async function Admin(app) {
       if (id) delete data.vehicle_id;
       try {
         const saved = id ? await api(`/vehicles/${id}/`, { method: "PATCH", body: data }) : await api("/vehicles/", { method: "POST", body: data });
-        const files = $("#fi").files; if (files.length) { const fd = new FormData(); [...files].forEach(x => fd.append("images", x)); b.textContent = "Uploading photos..."; await api(`/vehicles/${saved.vehicle_id}/images/`, { method: "POST", form: fd }); }
+        const files = newFiles; let skipped = []; if (files.length) { const fd = new FormData(); [...files].forEach(x => fd.append("images", x)); b.textContent = "Uploading photos..."; const r = await api(`/vehicles/${saved.vehicle_id}/images/`, { method: "POST", form: fd }); skipped = r.errors || []; }
         if ($("#fv").files[0]) { const fd = new FormData(); fd.append("video", $("#fv").files[0]); b.textContent = "Uploading video..."; await api(`/vehicles/${saved.vehicle_id}/video/`, { method: "POST", form: fd }); }
         if ($("#nt")?.checked) await api(`/vehicles/${saved.vehicle_id}/notify/`, { method: "POST" });
+        if (skipped.length) { // some photos were rejected: show which ones, on the edit page, so nothing is lost silently
+          await open("edit", saved.vehicle_id);
+          body().insertAdjacentHTML("afterbegin", `<div class="err" role="alert" style="padding:10px;border:1px solid var(--bad);border-radius:10px;margin-bottom:10px"><b>Saved, but ${skipped.length} photo(s) were not uploaded:</b><br>${skipped.map(esc).join("<br>")}</div>`);
+          return;
+        }
         toast(id ? "Changes saved" : `Published ${saved.vehicle_id}`); open("inv");
       } catch (er) { $("#fe").textContent = er.message; b.disabled = false; b.textContent = id ? "Save changes" : "Publish vehicle"; }
     };

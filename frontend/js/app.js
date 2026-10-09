@@ -8,6 +8,27 @@ const dt = d => new Date(d).toLocaleString([], { dateStyle: "medium", timeStyle:
 const toast = m => { const e = $("#toast"); e.textContent = m; e.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove("show"), 2600); };
 const cookie = n => (document.cookie.match("(^|;)\\s*" + n + "=([^;]+)") || [])[2];
 
+// ---------- Theme (light/dark, remembered, follows system until chosen) ----------
+const Theme = {
+  get: () => document.documentElement.dataset.theme || "light",
+  set(m, save = true) {
+    const h = document.documentElement; h.classList.add("tt"); h.dataset.theme = m;
+    if (save) try { localStorage.theme = m; } catch {}
+    $('meta[name="theme-color"]')?.setAttribute("content", m === "dark" ? "#0d1117" : "#0f2742");
+    this.sync(); setTimeout(() => h.classList.remove("tt"), 350);
+  },
+  sync() {
+    const dark = this.get() === "dark";
+    $$("[data-theme-toggle]").forEach(b => {
+      b.setAttribute("aria-label", dark ? "Dark mode on. Switch to light mode" : "Light mode on. Switch to dark mode");
+      b.innerHTML = b.classList.contains("navi") ? `<i>${dark ? "🌙" : "☀️"}</i><span class="lbl">${dark ? "Dark mode" : "Light mode"}</span>` : (dark ? "🌙" : "☀️");
+    });
+  },
+};
+document.addEventListener("click", e => { if (e.target.closest("[data-theme-toggle]")) Theme.set(Theme.get() === "dark" ? "light" : "dark"); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", e => { if (!localStorage.theme) Theme.set(e.matches ? "dark" : "light", false); });
+document.addEventListener("error", e => { if (e.target.tagName === "IMG") e.target.style.visibility = "hidden"; }, true); // missing images fail quietly
+
 async function api(path, { method = "GET", body, form } = {}) {
   const opt = { method, headers: {}, credentials: "same-origin" };
   if (method !== "GET") opt.headers["X-CSRFToken"] = cookie("csrftoken");
@@ -36,7 +57,8 @@ window.addEventListener("popstate", route);
 
 async function route() {
   const u = new URL(location.href), p = u.pathname;
-  $("#drawer").hidden = true;
+  $("#drawer").hidden = true; clearInterval(S.slideTimer);
+  document.body.classList.toggle("admin", p === "/admin" && !!S.user?.is_staff);
   const app = $("#app"); window.scrollTo(0, 0);
   renderNav(p);
   try {
@@ -59,10 +81,12 @@ function renderNav(p) {
    <span class="spacer"></span>
    ${S.deferredInstall ? `<button class="btn sm gold" id="installBtn">${t("install")}</button>` : ""}
    <a class="iconbtn" data-l href="/vehicles?focus=1" aria-label="${t("search")}">🔍</a>
+   <button class="iconbtn" data-theme-toggle></button>
    <button class="lang" id="langBtn" aria-label="Language">${S.lang === "en" ? "SW" : "EN"}</button>
    <a class="iconbtn" data-l href="${S.user?.is_staff ? "/admin" : "/account"}" aria-label="${t("account")}">${S.user ? "👤" : "🔓"}</a></div>`;
   $("#bottomnav").innerHTML = `<a data-l class="${p === "/" ? "on" : ""}" href="/"><b>🏠</b>${t("home")}</a><a data-l class="${on("/vehicles")}" href="/vehicles"><b>🚗</b>${t("vehicles")}</a>
    <a data-l href="/vehicles?focus=1"><b>🔍</b>${t("search")}</a><a data-l class="${on("/account")}" href="/account"><b>♡</b>${t("saved")}</a><a data-l class="${on("/contact")}" href="/contact"><b>📞</b>${t("contact")}</a>`;
+  Theme.sync();
   $("#langBtn").onclick = () => { S.lang = S.lang === "en" ? "sw" : "en"; localStorage.lang = S.lang; document.documentElement.lang = S.lang; route(); };
   const ib = $("#installBtn"); if (ib) ib.onclick = async () => { S.deferredInstall.prompt(); await S.deferredInstall.userChoice; S.deferredInstall = null; renderNav(location.pathname); };
 }
@@ -123,7 +147,7 @@ function recent(id) { if (!id) return JSON.parse(localStorage.recent || "[]"); c
 async function Home(app) {
   app.innerHTML = `<div class="hero"><div class="wrap"><div><span style="opacity:.8">${esc(S.biz.address)}</span><h1>${esc(S.biz.tagline)}</h1>
    <p>${esc(S.biz.name)}</p><form class="searchbar" id="hs" role="search"><input name="q" placeholder="${t("search_ph")}" aria-label="${t("search")}"><button class="btn gold">${t("search")}</button></form>
-   <p style="margin-top:16px"><a class="btn gold" data-l href="/vehicles">${t("hero_cta")}</a></p></div><div id="heroFeat"></div></div></div>
+   <p style="margin-top:16px"><a class="btn gold" data-l href="/vehicles">${t("hero_cta")}</a></p></div><div id="heroFeat"><div class="slider"><div class="skel" style="height:100%;aspect-ratio:auto"></div></div></div></div></div>
    <div class="wrap" id="homeBody">${["latest", "featured", "popular"].map(k => `<section class="sec"><div class="sechead"><div><h2>${t(k)}</h2></div><a data-l href="/vehicles">${t("view_all")}</a></div><div id="s_${k}">${skeleton(4)}</div></section>`).join("")}
    <div id="recentSec"></div>
    <section class="sec" id="cats"><h2>${t("browse_cat")}</h2><div class="cats" style="margin-top:12px">${S.cats.map(c => `<a class="cat" data-l href="/vehicles?category=${c.slug}">${esc(c.name)}<small>${c.count} ${t("AVAILABLE").toLowerCase()}</small></a>`).join("")}</div></section>
@@ -132,10 +156,32 @@ async function Home(app) {
    <section class="sec" id="contact"><h2>${t("contact")}</h2>${contactBox()}</section></div>${footer()}`;
   $("#hs").onsubmit = e => { e.preventDefault(); go("/vehicles?q=" + encodeURIComponent(new FormData(e.target).get("q"))); };
   const [latest, feat, pop] = await Promise.all(["ordering=-created_at&page_size=8", "featured=1&page_size=8", "ordering=-likes_count&page_size=8"].map(q => api("/vehicles/?" + q)));
-  const hv = feat.results[0] || latest.results[0];
-  if (hv) $("#heroFeat").innerHTML = `<a class="feat" data-l href="/vehicles/${esc(hv.vehicle_id)}"><img src="${esc(hv.cover)}" alt="${esc(hv.title)}"><div class="cap"><b>${esc(hv.title)}</b><br>${tzs(hv.price)}</div></a>`;
+  const seen = new Set(), pool = [...feat.results, ...latest.results].filter(v => v.cover && !seen.has(v.id) && seen.add(v.id));
+  heroSlider(pool.filter(v => v.status !== "SOLD").length ? pool.filter(v => v.status !== "SOLD") : pool); // real vehicles from the database
   [["latest", latest], ["featured", feat], ["popular", pop]].forEach(([k, d]) => $("#s_" + k).innerHTML = d.results.length ? `<div class="hscroll">${d.results.map(card).join("")}</div>` : `<div class="empty">${t("no_vehicles")}</div>`);
   const ids = recent(); if (ids.length) { const r = await api("/vehicles/?page_size=8&ids=" + ids.join(",")); if (r.results.length) $("#recentSec").innerHTML = `<section class="sec"><h2>${t("recent")}</h2><div class="hscroll" style="margin-top:12px">${r.results.map(card).join("")}</div></section>`; }
+}
+// Automatic hero slideshow: 3s fade, arrows, dots, pause on hover/focus, swipe on touch.
+function heroSlider(list) {
+  const box = $("#heroFeat"); if (!box) return;
+  const items = list.slice(0, 6);
+  if (!items.length) { box.innerHTML = `<div class="slider fallback"><div><h2>${t("soon")}</h2><p>${t("soon_t")}</p><a class="btn gold" data-l href="/contact">${t("contact")}</a></div></div>`; return; }
+  box.innerHTML = `<div class="slider" id="sl" role="region" aria-roledescription="carousel" aria-label="Featured vehicles">${items.map((v, i) =>
+    `<a class="slide${i ? "" : " on"}" data-l href="/vehicles/${esc(v.vehicle_id)}" aria-label="${esc(v.title)}"><img ${i ? `data-src="${esc(v.cover)}"` : `src="${esc(v.cover)}" fetchpriority="high"`} alt="${esc(v.title)}">
+     <div class="cap"><span class="badge ${v.status}" style="position:static;display:inline-block;margin-bottom:6px">${t(v.status)}</span><br><b>${esc(v.title)}</b><br>${tzs(v.price)}<br><span class="btn gold sm">${t("details")}</span></div></a>`).join("")}
+   ${items.length > 1 ? `<button class="sl-n l" aria-label="Previous slide">‹</button><button class="sl-n r" aria-label="Next slide">›</button><div class="dots">${items.map((_, i) => `<button class="${i ? "" : "on"}" data-d="${i}" aria-label="Slide ${i + 1}"></button>`).join("")}</div>` : ""}</div>`;
+  if (items.length < 2) return;
+  const sl = $("#sl"), slides = $$(".slide", sl), dots = $$("[data-d]", sl); let cur = 0, paused = false;
+  const load = i => { const im = $("img[data-src]", slides[i % slides.length]); if (im) { im.src = im.dataset.src; im.removeAttribute("data-src"); } };
+  const show = n => { cur = (n + slides.length) % slides.length; load(cur); load(cur + 1); slides.forEach((s, i) => s.classList.toggle("on", i === cur)); dots.forEach((d, i) => d.classList.toggle("on", i === cur)); };
+  load(1);
+  $(".sl-n.l", sl).onclick = () => show(cur - 1); $(".sl-n.r", sl).onclick = () => show(cur + 1);
+  dots.forEach(d => d.onclick = () => show(+d.dataset.d));
+  ["mouseenter", "focusin"].forEach(ev => sl.addEventListener(ev, () => paused = true));
+  ["mouseleave", "focusout"].forEach(ev => sl.addEventListener(ev, () => paused = false));
+  let sx = 0; sl.addEventListener("touchstart", e => { sx = e.touches[0].clientX; paused = true; }, { passive: true });
+  sl.addEventListener("touchend", e => { const d = e.changedTouches[0].clientX - sx; if (Math.abs(d) > 45) show(cur + (d < 0 ? 1 : -1)); paused = false; });
+  S.slideTimer = setInterval(() => { if (!paused && !document.hidden) show(cur + 1); }, 3000);
 }
 const contactBox = () => `<div class="contactbox"><div>📍 ${esc(S.biz.address)}</div><div>🕒 ${esc(S.biz.opening_hours)}</div><div>📞 ${esc(S.biz.phone)}</div>
  <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/${(S.biz.whatsapp || "").replace(/\D/g, "")}">${t("whatsapp")}</a><a class="btn alt" href="tel:${esc(S.biz.phone)}">${t("call")}</a></div></div>`;
@@ -147,7 +193,7 @@ async function Browse(app, sp) {
   ["brand", "year_min", "year_max", "price_min", "price_max", "condition", "available"].forEach(k => sp.get(k) && (f[k] = sp.get(k)));
   let page = 1;
   app.innerHTML = `<div class="wrap" style="padding-top:14px"><form class="searchbar" style="border:1px solid var(--line);max-width:none" id="bs" role="search"><input id="q" name="q" value="${esc(f.q)}" placeholder="${t("search_ph")}" aria-label="${t("search")}" autocomplete="off"><button class="btn">${t("search")}</button></form>
-   <div class="chips" role="tablist"><button class="chip" data-c="all">${t("all")}</button>${S.cats.map(c => `<button class="chip" data-c="${c.slug}">${esc(c.name)}</button>`).join("")}<button class="chip" id="fbtn" style="margin-left:auto">⚙ ${t("filters")}</button></div>
+   <div class="chips" role="tablist"><button class="chip" data-c="all">${t("all")}</button>${S.cats.map(c => `<button class="chip" data-c="${c.slug}">${esc(c.name)}</button>`).join("")}<select id="sort" class="chip" style="margin-left:auto;width:auto" aria-label="Sort"><option value="-created_at">${t("sort_new")}</option><option value="price">${t("sort_low")}</option><option value="-price">${t("sort_high")}</option></select><button class="chip" id="fbtn">⚙ ${t("filters")}</button></div>
    <div id="list">${skeleton(8)}</div><div class="viewall" id="more"></div></div>${footer()}`;
   if (sp.get("focus")) $("#q").focus();
   const mark = () => $$(".chip[data-c]").forEach(c => c.classList.toggle("on", c.dataset.c === f.category));
@@ -156,12 +202,14 @@ async function Browse(app, sp) {
     const qs = new URLSearchParams({ ...f, page, page_size: 12 }); if (f.category === "all") qs.delete("category");
     try {
       const d = await api("/vehicles/?" + qs);
-      if (!append) $("#list").innerHTML = d.results.length ? `<div class="grid"></div>` : `<div class="empty">${t("no_vehicles")}</div>`;
+      if (!append) $("#list").innerHTML = d.results.length ? `<div class="grid"></div>` : `<div class="empty">${t("no_vehicles")}<br><button class="btn alt sm" id="clr" style="margin-top:10px">${t("clear")}</button></div>`;
+      if ($("#clr")) $("#clr").onclick = () => { Object.keys(f).forEach(k => delete f[k]); Object.assign(f, { category: "all", q: "", ordering: "-created_at" }); $("#q").value = ""; $("#sort").value = "-created_at"; mark(); load(); };
       $(".grid", $("#list"))?.insertAdjacentHTML("beforeend", d.results.map(card).join(""));
       $("#more").innerHTML = d.next ? `<button class="btn alt" id="lm">${t("load_more")}</button>` : "";
       if (d.next) $("#lm").onclick = () => { page++; load(true); };
     } catch (e) { $("#list").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
   };
+  $("#sort").value = f.ordering; $("#sort").onchange = e => { f.ordering = e.target.value; load(); };
   $("#bs").onsubmit = e => { e.preventDefault(); f.q = $("#q").value.trim(); load(); };
   let tm; $("#q").oninput = () => { clearTimeout(tm); tm = setTimeout(() => { f.q = $("#q").value.trim(); load(); }, 350); };
   $$(".chip[data-c]").forEach(c => c.onclick = () => { f.category = c.dataset.c; mark(); load(); });

@@ -6,7 +6,7 @@ from rest_framework.views import exception_handler as drf_handler
 
 IMAGE_EXT = {"jpg", "jpeg", "png", "webp"}
 VIDEO_EXT = {"mp4", "webm", "mov"}
-MAX_IMAGE_MB, MAX_VIDEO_MB = 8, 50
+MAX_IMAGE_MB, MAX_VIDEO_MB = 15, 50  # phone photos are often 5-12MB; they are resized and compressed on save
 
 
 def _ext(f):

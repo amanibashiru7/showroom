@@ -10,7 +10,7 @@ window.I18N = {
     all:"All",cars:"Cars",motorcycles:"Motorcycles",bajaji:"Bajaji",guta:"Guta",similar:"Similar vehicles",comments:"Comments",
     w1:"Inspected vehicles",w1t:"Every vehicle is checked before it is listed.",w2:"Clear prices",w2t:"The price is always visible. No surprises.",
     w3:"Easy to reach",w3t:"Call or WhatsApp us in one tap.",w4:"Visit us",w4t:"See the vehicle in person at our showroom.",
-    install:"Install app",not_found:"Vehicle not found.",network:"Network error. Please check your connection.",sent:"Inquiry sent. We will contact you soon."},
+    install:"Install app",clear:"Clear filters",sort_new:"Newest",sort_low:"Price: low to high",sort_high:"Price: high to low",soon:"New vehicles coming soon",soon_t:"Contact us to ask about vehicles in stock.",not_found:"Vehicle not found.",network:"Network error. Please check your connection.",sent:"Inquiry sent. We will contact you soon."},
   sw: {home:"Mwanzo",vehicles:"Magari",categories:"Makundi",about:"Kuhusu",contact:"Mawasiliano",search:"Tafuta",account:"Akaunti",saved:"Zilizohifadhiwa",
     hero_cta:"Tazama Magari",search_ph:"Tafuta Toyota, Bajaj, Corolla, Guta...",latest:"Zilizowasili Hivi Karibuni",featured:"Magari Maalum",popular:"Magari Maarufu",
     browse_cat:"Tazama kwa Kundi",why:"Kwa Nini Sisi",view_all:"Tazama yote",details:"Maelezo",call:"Piga simu",whatsapp:"WhatsApp",share:"Shiriki",
@@ -21,5 +21,5 @@ window.I18N = {
     all:"Zote",cars:"Magari",motorcycles:"Pikipiki",bajaji:"Bajaji",guta:"Guta",similar:"Magari yanayofanana",comments:"Maoni",
     w1:"Magari yaliyokaguliwa",w1t:"Kila gari hukaguliwa kabla ya kuorodheshwa.",w2:"Bei wazi",w2t:"Bei huonekana kila wakati.",
     w3:"Rahisi kufikika",w3t:"Piga simu au WhatsApp kwa mguso mmoja.",w4:"Tutembelee",w4t:"Liangalie gari ana kwa ana kwenye showroom yetu.",
-    install:"Sakinisha app",not_found:"Gari halijapatikana.",network:"Hitilafu ya mtandao. Angalia muunganisho wako.",sent:"Swali limetumwa. Tutawasiliana nawe."},
+    install:"Sakinisha app",clear:"Futa vichujio",sort_new:"Mpya zaidi",sort_low:"Bei: ndogo hadi kubwa",sort_high:"Bei: kubwa hadi ndogo",soon:"Magari mapya yanakuja hivi karibuni",soon_t:"Wasiliana nasi kuuliza magari yaliyopo.",not_found:"Gari halijapatikana.",network:"Hitilafu ya mtandao. Angalia muunganisho wako.",sent:"Swali limetumwa. Tutawasiliana nawe."},
 };
